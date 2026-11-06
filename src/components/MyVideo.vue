@@ -61,7 +61,7 @@
             <p class="post-text">下雪了，第一件事就是拍下来给你看。❄️</p>
 
             <!-- 视频卡片 -->
-            <div class="video-wrap" @click="togglePlay">
+            <div class="video-wrap">
               <video
                 ref="video"
                 :src="videoSrc"
@@ -69,6 +69,8 @@
                 playsinline
                 webkit-playsinline
                 x5-playsinline
+                x5-video-player-type="h5"
+                x5-video-player-fullscreen="false"
                 @loadedmetadata="onLoaded"
                 @play="playing = true"
                 @pause="playing = false"
@@ -76,13 +78,20 @@
                 @timeupdate="onTimeUpdate"
               ></video>
 
-              <div v-if="!playing" class="play-mask">
-                <span class="play-btn">
+              <!-- 用 button 铺满整块区域，避免 iOS / 微信里 video 吞掉点击 -->
+              <button
+                type="button"
+                class="video-tap"
+                :class="{ paused: !playing }"
+                :aria-label="playing ? '暂停' : '播放'"
+                @click="togglePlay"
+              >
+                <span v-if="!playing" class="play-btn">
                   <svg viewBox="0 0 24 24" width="22" height="22" fill="#fff">
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 </span>
-              </div>
+              </button>
 
               <span class="duration">{{ playing ? fmt(current) + ' / ' + fmt(duration) : fmt(duration) }}</span>
 
@@ -162,10 +171,18 @@ export default {
     togglePlay() {
       const video = this.$refs.video
       if (!video) return
-      if (video.paused) {
-        video.play().catch(() => {})
-      } else {
+      if (!video.paused) {
         video.pause()
+        return
+      }
+      const attempt = video.play()
+      if (attempt && attempt.catch) {
+        // 部分手机浏览器会拦截有声播放，降级为静音后再试一次
+        attempt.catch(() => {
+          video.muted = true
+          const retry = video.play()
+          if (retry && retry.catch) retry.catch(() => {})
+        })
       }
     },
     onLoaded(event) {
@@ -398,15 +415,30 @@ export default {
   background: #0d1520;
 }
 
-.play-mask {
+.video-tap {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: grid;
   place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.video-tap.paused {
   background: rgba(0, 0, 0, 0.1);
 }
 
+.video-tap:active .play-btn {
+  transform: scale(0.94);
+}
+
 .play-btn {
+  pointer-events: none;
   width: 52px;
   height: 52px;
   display: grid;
@@ -421,6 +453,8 @@ export default {
   position: absolute;
   right: 8px;
   bottom: 8px;
+  z-index: 3;
+  pointer-events: none;
   padding: 2px 6px;
   border-radius: 3px;
   background: rgba(0, 0, 0, 0.48);
@@ -434,6 +468,8 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 3;
+  pointer-events: none;
   height: 2px;
   background: rgba(255, 255, 255, 0.28);
 }
