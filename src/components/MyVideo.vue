@@ -45,7 +45,7 @@
           <span class="snow s4">❄</span>
           <span class="snow s5">❄</span>
           <div class="cover-user">
-            <span class="cover-nick">小宋</span>
+            <span class="cover-nick">宋宋子</span>
             <div class="cover-avatar">宋</div>
           </div>
         </section>
@@ -55,7 +55,7 @@
           <div class="post-avatar">宋</div>
 
           <div class="post-main">
-            <p class="post-name">小宋</p>
+            <p class="post-name">宋宋子</p>
             <p class="post-time">1 分钟前</p>
 
             <p class="post-text">下雪了，第一件事就是拍下来给你看。❄️</p>
@@ -65,21 +65,23 @@
               <video
                 ref="video"
                 :src="videoSrc"
+                :poster="posterSrc"
+                :controls="useNativeControls"
                 preload="auto"
                 playsinline
                 webkit-playsinline
                 x5-playsinline
-                x5-video-player-type="h5"
-                x5-video-player-fullscreen="false"
                 @loadedmetadata="onLoaded"
                 @play="playing = true"
                 @pause="playing = false"
                 @ended="playing = false"
+                @error="onVideoError"
                 @timeupdate="onTimeUpdate"
               ></video>
 
               <!-- 用 button 铺满整块区域，避免 iOS / 微信里 video 吞掉点击 -->
               <button
+                v-if="!useNativeControls"
                 type="button"
                 class="video-tap"
                 :class="{ paused: !playing }"
@@ -93,9 +95,9 @@
                 </span>
               </button>
 
-              <span class="duration">{{ playing ? fmt(current) + ' / ' + fmt(duration) : fmt(duration) }}</span>
+              <span v-if="!useNativeControls" class="duration">{{ playing ? fmt(current) + ' / ' + fmt(duration) : fmt(duration) }}</span>
 
-              <div v-if="playing" class="progress">
+              <div v-if="playing && !useNativeControls" class="progress">
                 <span :style="{ width: percent + '%' }"></span>
               </div>
             </div>
@@ -127,7 +129,7 @@
             <!-- 互动区 -->
             <div v-if="showComments" class="comments">
               <p><span class="comment-name">周老师：</span>好美，像你拍的每一帧。</p>
-              <p><span class="comment-name">小宋 回复 周老师：</span>那下次带你一起看。</p>
+              <p><span class="comment-name">宋宋子 回复 周老师：</span>那下次带你一起看。</p>
             </div>
           </div>
         </article>
@@ -144,12 +146,16 @@
 
 <script>
 import winterVideo from '../assets/winter.mp4'
+import winterPoster from '../assets/winter-poster.jpg'
 
 export default {
   name: 'MyVideo',
   data() {
     return {
       videoSrc: winterVideo,
+      posterSrc: winterPoster,
+      // 触屏设备直接使用系统播放器控件，兼容性最好
+      useNativeControls: false,
       playing: false,
       current: 0,
       duration: 0,
@@ -162,6 +168,12 @@ export default {
   computed: {
     percent() {
       return this.duration ? (this.current / this.duration) * 100 : 0
+    }
+  },
+  mounted() {
+    // 触屏设备交给系统播放器，避免自定义播放层在部分手机浏览器上被拦截
+    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+      this.useNativeControls = true
     }
   },
   beforeUnmount() {
@@ -187,6 +199,9 @@ export default {
     },
     onLoaded(event) {
       this.duration = event.target.duration || 0
+    },
+    onVideoError() {
+      this.tip('视频加载失败了，检查一下网络~')
     },
     onTimeUpdate(event) {
       this.current = event.target.currentTime || 0
